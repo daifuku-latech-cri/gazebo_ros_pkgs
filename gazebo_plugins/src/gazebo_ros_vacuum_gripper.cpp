@@ -201,7 +201,7 @@ void GazeboRosVacuumGripper::UpdateChild()
 #endif
       ignition::math::Pose3d diff = parent_pose - link_pose;
       double norm = diff.Pos().Length();
-      if (norm < 0.05) {
+      if (norm < 0.1) {
 #if GAZEBO_MAJOR_VERSION >= 8
         links[j]->SetLinearVel(link_->WorldLinearVel());
         links[j]->SetAngularVel(link_->WorldAngularVel());
@@ -210,16 +210,20 @@ void GazeboRosVacuumGripper::UpdateChild()
         links[j]->SetAngularVel(link_->GetWorldAngularVel());
 #endif
         double norm_force = 1 / norm;
+        ROS_INFO_STREAM_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: norm: "<< norm );
         if (norm < 0.01) {
           // apply friction like force
           // TODO(unknown): should apply friction actually
           link_pose.Set(parent_pose.Pos(), link_pose.Rot());
           links[j]->SetWorldPose(link_pose);
         }
-        if (norm_force > 20) {
-          norm_force = 20;  // max_force
+        if (norm_force > 50) {
+          norm_force = 50;  // max_force
         }
-        ignition::math::Vector3d force = norm_force * diff.Pos().Normalize();
+        //ignition::math::Vector3d force = norm_force * diff.Pos().Normalize();
+        ignition::math::Vector3d force = 70 * diff.Pos().Normalize();
+        ROS_INFO_STREAM_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: Force: "<< force );
+        ROS_INFO_STREAM_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: norm_force: "<< norm_force );
         links[j]->AddForce(force);
         grasping_msg.data = true;
       }

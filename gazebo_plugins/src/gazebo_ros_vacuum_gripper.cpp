@@ -181,18 +181,26 @@ void GazeboRosVacuumGripper::UpdateChild()
   lock_.lock();
 #if GAZEBO_MAJOR_VERSION >= 8
   ignition::math::Pose3d parent_pose = link_->WorldPose();
+  //Search the models and put them into a vector
   physics::Model_V models = world_->Models();
 #else
   ignition::math::Pose3d parent_pose = link_->GetWorldPose().Ign();
   physics::Model_V models = world_->GetModels();
 #endif
+  ROS_INFO_STREAM_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: link_->GetName(): "<< link_->GetName() );
+  ROS_INFO_STREAM_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: parent_->GetName(): "<< parent_->GetName() );
+  ROS_INFO_STREAM_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: models.size(): "<< models.size() );
   for (size_t i = 0; i < models.size(); i++) {
     if (models[i]->GetName() == link_->GetName() ||
         models[i]->GetName() == parent_->GetName())
     {
+      //Exclude the models in the vector with the same name as robot vacuum gripper name and the robot name. 
+      //This is to avoid interference between the vacuum gripper and robot links
       continue;
     }
+    //The model to carry by the suction gripper can contain different links so use a vector to contain the links of the model
     physics::Link_V links = models[i]->GetLinks();
+    ROS_INFO_STREAM_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: links.size(): "<< links.size() );
     for (size_t j = 0; j < links.size(); j++) {
 #if GAZEBO_MAJOR_VERSION >= 8
       ignition::math::Pose3d link_pose = links[j]->WorldPose();
@@ -201,6 +209,7 @@ void GazeboRosVacuumGripper::UpdateChild()
 #endif
       ignition::math::Pose3d diff = parent_pose - link_pose;
       double norm = diff.Pos().Length();
+      //Distance between the vacuum gripper link and the model link in this loop
       if (norm < 0.1) {
 #if GAZEBO_MAJOR_VERSION >= 8
         links[j]->SetLinearVel(link_->WorldLinearVel());

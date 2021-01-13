@@ -67,6 +67,9 @@ void GazeboRosVacuumGripper::Load(physics::ModelPtr _model, sdf::ElementPtr _sdf
   // Get the world name.
   world_ = _model->GetWorld();
 
+  // Realtive pose not initialized 
+  rel_pose_init_ = false;
+
   // load parameters
   robot_namespace_ = "";
   if (_sdf->HasElement("robotNamespace"))
@@ -164,6 +167,7 @@ bool GazeboRosVacuumGripper::OffServiceCallback(std_srvs::Empty::Request &req,
   } else {
     ROS_WARN_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: already status is 'off'");
   }
+  rel_pose_init_ == false;
   return true;
 }
 
@@ -187,12 +191,13 @@ void GazeboRosVacuumGripper::UpdateChild()
   ignition::math::Pose3d parent_pose = link_->GetWorldPose().Ign();
   physics::Model_V models = world_->GetModels();
 #endif
-  ROS_INFO_STREAM_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: link_->GetName(): "<< link_->GetName() );
-  ROS_INFO_STREAM_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: parent_->GetName(): "<< parent_->GetName() );
-  ROS_INFO_STREAM_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: models.size(): "<< models.size() );
+  //ROS_INFO_STREAM_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: link_->GetName(): "<< link_->GetName() );
+  //ROS_INFO_STREAM_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: parent_->GetName(): "<< parent_->GetName() );
+  //ROS_INFO_STREAM_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: models.size(): "<< models.size() );
   for (size_t i = 0; i < models.size(); i++) {
     if (models[i]->GetName() == link_->GetName() ||
-        models[i]->GetName() == parent_->GetName())
+        models[i]->GetName() == parent_->GetName() ||
+        models[i]->GetName() == "ground_plane" )
     {
       //Exclude the models in the vector with the same name as robot vacuum gripper name and the robot name. 
       //This is to avoid interference between the vacuum gripper and robot links
@@ -200,7 +205,7 @@ void GazeboRosVacuumGripper::UpdateChild()
     }
     //The model to carry by the suction gripper can contain different links so use a vector to contain the links of the model
     physics::Link_V links = models[i]->GetLinks();
-    ROS_INFO_STREAM_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: links.size(): "<< links.size() );
+    //ROS_INFO_STREAM_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: links.size(): "<< links.size() );
     for (size_t j = 0; j < links.size(); j++) {
 #if GAZEBO_MAJOR_VERSION >= 8
       ignition::math::Pose3d link_pose = links[j]->WorldPose();
@@ -210,31 +215,56 @@ void GazeboRosVacuumGripper::UpdateChild()
       ignition::math::Pose3d diff = parent_pose - link_pose;
       double norm = diff.Pos().Length();
       //Distance between the vacuum gripper link and the model link in this loop
-      if (norm < 0.1) {
+      if (norm < 0.08) {
 #if GAZEBO_MAJOR_VERSION >= 8
-        links[j]->SetLinearVel(link_->WorldLinearVel());
-        links[j]->SetAngularVel(link_->WorldAngularVel());
+	//Set static pose off the model in the link frame
+	if(rel_pose_init_ == false){
+        relative_pose_ = - parent_pose * link_pose;
+	rel_pose_init_ = true;
+        ROS_INFO_STREAM_NAMED("vacuum_gripper", "links[j]->GetName(): "<< links[j]->GetName() );
+        ROS_INFO_STREAM_NAMED("vacuum_gripper", "link_pose : "<< link_pose );
+        ROS_INFO_STREAM_NAMED("vacuum_gripper", "parent_pose : "<< parent_pose );
+        ROS_INFO_STREAM_NAMED("vacuum_gripper", "relative_pose : "<< relative_pose_ );
+        //links[j]->SetWorldPose(link_pose);
+        }
+        //links[j]->SetLinearVel(link_->WorldLinearVel());
+        //links[j]->SetAngularVel(link_->WorldAngularVel());
+        //
 #else
-        links[j]->SetLinearVel(link_->GetWorldLinearVel());
-        links[j]->SetAngularVel(link_->GetWorldAngularVel());
+        //links[j]->SetLinearVel(link_->GetWorldLinearVel());
+        //links[j]->SetAngularVel(link_->GetWorldAngularVel());
 #endif
-        double norm_force = 1 / norm;
-        ROS_INFO_STREAM_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: norm: "<< norm );
-        if (norm < 0.01) {
-          // apply friction like force
-          // TODO(unknown): should apply friction actually
-          link_pose.Set(parent_pose.Pos(), link_pose.Rot());
-          links[j]->SetWorldPose(link_pose);
-        }
-        if (norm_force > 50) {
-          norm_force = 50;  // max_force
-        }
-        //ignition::math::Vector3d force = norm_force * diff.Pos().Normalize();
-        ignition::math::Vector3d force = 70 * diff.Pos().Normalize();
-        ROS_INFO_STREAM_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: Force: "<< force );
-        ROS_INFO_STREAM_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: norm_force: "<< norm_force );
-        links[j]->AddForce(force);
+        //double norm_force = 1 / norm;
+        //ROS_INFO_STREAM_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: norm: "<< norm );
+        //if (norm < 0.01) {
+        //  // apply friction like force
+        //  // TODO(unknown): should apply friction actually
+        //  link_pose.Set(parent_pose.Pos(), link_pose.Rot());
+        //  links[j]->SetWorldPose(link_pose);
+        //}
+        //if (norm_force > 50) {
+        //  norm_force = 50;  // max_force
+        //}
+        ////ignition::math::Vector3d force = norm_force * diff.Pos().Normalize();
+        //ignition::math::Vector3d force = 70 * diff.Pos().Normalize();
+        //ROS_INFO_STREAM_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: Force: "<< force );
+        //ROS_INFO_STREAM_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: norm_force: "<< norm_force );
+        //links[j]->AddForce(force);
         grasping_msg.data = true;
+      }
+      if(rel_pose_init_ == true){
+      ignition::math::Pose3d box_pose;
+      //box_pose.Set( parent_pose.Pos() - relative_pose_.Pos(), parent_pose.Rot() - relative_pose_.Rot());
+      box_pose = parent_pose * relative_pose_;
+      models[i]->SetStatic(true);
+      models[i]->SetGravityMode(false);
+      models[i]->SetWorldPose(box_pose);
+      //ROS_INFO_STREAM_NAMED("vacuum_gripper", "links[j]->GetName(): "<< links[j]->GetName() );
+      //ROS_INFO_STREAM_NAMED("vacuum_gripper", "box_pose : "<< box_pose );
+      //ROS_INFO_STREAM_NAMED("vacuum_gripper", "parent_pose : "<< parent_pose );
+      //ROS_INFO_STREAM_NAMED("vacuum_gripper", "relative_pose_ : "<< relative_pose_ );
+      //ROS_INFO_STREAM_NAMED("vacuum_gripper", "parent_pose + relative_pose_ : "<< parent_pose + relative_pose_ );
+      //ROS_INFO_STREAM_NAMED("vacuum_gripper", "parent_pose - relative_pose_ : "<< parent_pose - relative_pose_ );
       }
     }
   }

@@ -167,7 +167,10 @@ bool GazeboRosVacuumGripper::OffServiceCallback(std_srvs::Empty::Request &req,
   } else {
     ROS_WARN_NAMED("vacuum_gripper", "gazebo_ros_vacuum_gripper: already status is 'off'");
   }
-  rel_pose_init_ == false;
+  rel_pose_init_ = false;
+  current_picked_model_->SetStatic(false);
+  current_picked_model_->SetGravityMode(true);
+  ROS_INFO_STREAM_NAMED("vacuum_gripper", "current_picked_model_ name released:  "<< current_picked_model_->GetName() );
   return true;
 }
 
@@ -215,7 +218,7 @@ void GazeboRosVacuumGripper::UpdateChild()
       ignition::math::Pose3d diff = parent_pose - link_pose;
       double norm = diff.Pos().Length();
       //Distance between the vacuum gripper link and the model link in this loop
-      if (norm < 0.08) {
+      if (norm < 0.06) {
 #if GAZEBO_MAJOR_VERSION >= 8
 	//Set static pose off the model in the link frame
 	if(rel_pose_init_ == false){
@@ -225,6 +228,9 @@ void GazeboRosVacuumGripper::UpdateChild()
         ROS_INFO_STREAM_NAMED("vacuum_gripper", "link_pose : "<< link_pose );
         ROS_INFO_STREAM_NAMED("vacuum_gripper", "parent_pose : "<< parent_pose );
         ROS_INFO_STREAM_NAMED("vacuum_gripper", "relative_pose : "<< relative_pose_ );
+        ROS_INFO_STREAM_NAMED("vacuum_gripper", "models[i] : "<< models[i] );
+	current_picked_model_ = models[i];
+        ROS_INFO_STREAM_NAMED("vacuum_gripper", "current_picked_model_ : "<< current_picked_model_->GetName() );
         //links[j]->SetWorldPose(link_pose);
         }
         //links[j]->SetLinearVel(link_->WorldLinearVel());
@@ -256,9 +262,9 @@ void GazeboRosVacuumGripper::UpdateChild()
       ignition::math::Pose3d box_pose;
       //box_pose.Set( parent_pose.Pos() - relative_pose_.Pos(), parent_pose.Rot() - relative_pose_.Rot());
       box_pose = parent_pose * relative_pose_;
-      models[i]->SetStatic(true);
-      models[i]->SetGravityMode(false);
-      models[i]->SetWorldPose(box_pose);
+      current_picked_model_->SetStatic(true);
+      current_picked_model_->SetGravityMode(false);
+      current_picked_model_->SetWorldPose(box_pose);
       //ROS_INFO_STREAM_NAMED("vacuum_gripper", "links[j]->GetName(): "<< links[j]->GetName() );
       //ROS_INFO_STREAM_NAMED("vacuum_gripper", "box_pose : "<< box_pose );
       //ROS_INFO_STREAM_NAMED("vacuum_gripper", "parent_pose : "<< parent_pose );

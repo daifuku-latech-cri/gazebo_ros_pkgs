@@ -142,7 +142,7 @@ class GazeboRosVacuumGripper : public ModelPlugin
   private: bool rel_pose_init_;
   /// \brief Relative pose from the item to grasp to the gripper.
   private: ignition::math::Pose3d relative_pose_;
-  /// \brief .
+  /// \brief A pointer to the current picked model.
   private: physics::ModelPtr current_picked_model_;
 
 

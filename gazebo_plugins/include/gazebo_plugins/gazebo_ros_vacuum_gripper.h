@@ -138,6 +138,13 @@ class GazeboRosVacuumGripper : public ModelPlugin
   private: std::string service_name_;
   /// \brief The Link this plugin is attached to, and will exert forces on.
   private: std::string link_name_;
+  /// \brief Boolean to initialize the relative pose from the item to grasp to the gripper.
+  private: bool rel_pose_init_;
+  /// \brief Relative pose from the item to grasp to the gripper.
+  private: ignition::math::Pose3d relative_pose_;
+  /// \brief A pointer to the current picked model.
+  private: physics::ModelPtr current_picked_model_;
+
 
   /// \brief for setting ROS name space
   private: std::string robot_namespace_;
